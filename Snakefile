@@ -51,7 +51,9 @@ def get_pred_list(dataset):
 def get_pred_files(dataset):
     pred_list = get_pred_list(dataset)
     pred_dir = config[dataset]['pred_dir']
-    return 
+    return [f"{pred_dir}/{pred}_combination_predicted_{model}.csv" 
+            for pred in pred_list 
+            for model in ['ind', 'add']]
 
 placebo_df = pd.read_csv(config['placebo']['metadata_sheet'], sep='\t', header=0)
 placebo_list = list(placebo_df['File prefix'])
@@ -115,9 +117,11 @@ rule preprocess:
     conda:
         "env/environment_short.yml"
     shell:
-        "python src/preprocessing.py approved; "
-        "python src/preprocessing.py placebo; "
-        "python src/preprocessing.py all_phase3"
+        """
+        python src/preprocessing.py approved && \
+        python src/preprocessing.py placebo && \
+        python src/preprocessing.py all_phase3
+        """
 
 rule find_seeds:
     input:
@@ -129,8 +133,10 @@ rule find_seeds:
         f"{config['approved']['metadata_sheet_seed']}",
         f"{config['all_phase3']['metadata_sheet_seed']}"
     shell:
-        "python src/find_median_sim.py approved; "
-        "python src/find_median_sim.py all_phase3"        
+        """
+        python src/find_median_sim.py approved && \
+        python src/find_median_sim.py all_phase3
+        """
 
 rule hsa_additivity_prediction:
     input:
@@ -141,8 +147,10 @@ rule hsa_additivity_prediction:
     output:
         ALL_PRED_FILES
     shell:
-        "python src/hsa_additivity_model.py approved; "
-        "python src/hsa_additivity_model.py all_phase3"
+        """
+        python src/hsa_additivity_model.py approved && \
+        python src/hsa_additivity_model.py all_phase3
+        """
 
 rule cox_ph_test:
     input:
@@ -151,8 +159,10 @@ rule cox_ph_test:
         config['approved']['cox_result'],
         config['all_phase3']['cox_result']
     shell:
-        "python src/coxhazard_test.py approved; "
-        "python src/coxhazard_test.py all_phase3"
+        """
+        python src/coxhazard_test.py approved && \
+        python src/coxhazard_test.py all_phase3
+        """
 
 rule forest_plot:
     input:
@@ -218,16 +228,18 @@ rule placebo_survival_plots:
         ALL_PLACEBO_TRIALS
     output:
         f"{config['placebo']['fig_dir']}/placebo_survival_plots.pdf"
-    script:
-        "src/plotting/plot_placebo.py"
+    conda:
+        "env/environment_short.yml"
+    shell:
+        "python src/plotting/plot_placebo.py"
 
 rule relative_dose_plot:
     input:
         config['relative_doses']
     output:
         f"{config['approved']['fig_dir']}/relative_doses.pdf"
-    script:
-        "src/plotting/plot_doses_difference.py"
+    shell:
+        "python src/plotting/plot_doses_difference.py"
 
 rule suppl_survival_plots:
     input:
@@ -262,8 +274,10 @@ rule HSA_additive_diff:
         f"{config['approved']['table_dir']}/added_benefit_hsa_add_syn.csv",
         f"{config['approved']['fig_dir']}/hsa_additivity_sigma.pdf"
     shell:
-        "python src/lognormal_examples.py; "
-        "python src/hsa_add_diff.py"
+        """
+        python src/lognormal_examples.py && \
+        python src/hsa_add_diff.py
+        """
 
 rule experimental_correlation:
     input:
@@ -277,8 +291,10 @@ rule experimental_correlation:
         f'{FIG_DIR}/Dabrafenib_Trametinib_AUC_corr.pdf',
         f'{FIG_DIR}/CTRPv2_corr_distributions.pdf',
         f'{TABLE_DIR}/experimental_correlation_report.csv'
-    script:
-        "src/experimental_correlation.py"
+    conda:
+        "env/environment_short.yml"
+    shell:
+        "python src/experimental_correlation.py"
 
 rule AIC:
     input:
@@ -299,5 +315,9 @@ rule all_phase3_predictive_power:
         f"{config['all_phase3']['fig_dir']}/roc_curve.pdf",
         f"{config['all_phase3']['fig_dir']}/precision-recall_curve.pdf",
         f"{config['all_phase3']['fig_dir']}/additivity_prob_success_swarm_plot.pdf"
-    script:
-        "src/all_phase3_predictive_power.py"
+    conda:
+        "env/environment_short.yml"
+    shell:
+        """
+        python src/all_phase3_predictive_power.py
+        """
